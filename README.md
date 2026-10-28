@@ -78,7 +78,7 @@ Particle simulation at t = 1 (20000 particles, seed 7):
   this is the classical problem, not a diffusion-model implementation.
 - **One convention subtlety**, documented in
   [docs/DESIGN.md](docs/DESIGN.md): the grid kernel
-  `exp(-(x_i-x_j)^2 / eps_k)` corresponds to bridge parameter
+  `exp(-(x_i - x_j)^2 / eps_k)` corresponds to bridge parameter
   `eps = eps_k / 2`. Read that note before comparing numbers across
   modules.
 
