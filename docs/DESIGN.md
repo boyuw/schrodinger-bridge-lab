@@ -116,12 +116,24 @@ against the other with mismatched conventions.
 - No convergence acceleration, no log-domain stabilization, no
   multi-dimensional anything.
 
+### Dynamic bridge, part 1: potentials and h (landed)
+
+`bridge_lab.potentials` extracts the Schrödinger log-potentials
+`log a`, `log b` from a solved static bridge and evaluates the Doob
+h-function `h(t, x) = sum_j exp(-(x - x_j)^2 / (eps_k * (1-t))) * b_j`
+for `t < 1`, with `h(1, .) = b`. It is anchored by two exact identities,
+both tested: `h(0, x_i) = mu_i / a_i` (the Sinkhorn update for `a`)
+and reconstruction `pi_ij = exp(log a_i + log b_j) K_ij`. The values
+are unnormalized kernel expectations — only `log h` differences matter
+for the drift — so no normalization constant is applied.
+
 ## What v2 could add
 
-- The **dynamic bridge via the Doob h-transform**: compute the drift
-  `eps * grad log h(t, x)` from the Schrödinger system and simulate the
-  forward SDE with Euler–Maruyama, then check it against the mixture
-  representation — the natural "second half" of the theory.
+- The **dynamic bridge via the Doob h-transform, parts 2–4**: the drift
+  `eps * grad log h(t, x)` (finite differences of `log h` on the grid),
+  forward SDE simulation with Euler–Maruyama, then a check of the
+  simulated time-marginals against the mixture representation — the
+  natural "second half" of the theory, built on the potentials above.
 - Log-domain Sinkhorn for small `eps`, and the rationalized `c*` form.
 - Non-Gaussian endpoints via discretized potentials (the static side
   already supports arbitrary `mu`, `nu`).
