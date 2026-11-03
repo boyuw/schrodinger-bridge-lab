@@ -111,8 +111,9 @@ against the other with mismatched conventions.
 
 - 1-D, finite grids, Gaussian endpoints for the closed form / sampler.
 - The dynamic bridge is obtained from the static one via the mixture
-  representation (exact), never via an SDE with a learned or computed
-  drift.
+  representation (exact), never via an SDE simulation: the drift itself
+  is now computed (`bridge_lab.drift`), but the forward SDE simulation
+  that would use it is still to come.
 - No convergence acceleration, no log-domain stabilization, no
   multi-dimensional anything.
 
@@ -127,13 +128,27 @@ and reconstruction `pi_ij = exp(log a_i + log b_j) K_ij`. The values
 are unnormalized kernel expectations — only `log h` differences matter
 for the drift — so no normalization constant is applied.
 
+### Dynamic bridge, part 2: drift (landed)
+
+`bridge_lab.drift` computes the h-transform drift
+`drift(t, x) = (eps_k / 2) * grad log h(t, x)` — the `eps_k / 2` is the
+reference Brownian motion's variance rate in the SDE convention (the
+grid kernel `exp(-d^2 / eps_k)` has variance rate `eps_k / 2`). The
+gradient is a finite difference of `log h` on the grid (central inside,
+one-sided at the ends). It is anchored by an exact identity, tested:
+for a point-mass terminal potential, `log h` is quadratic, the central
+difference is exact on a uniform grid, and the drift reduces to the
+Brownian-bridge pull `-(x - x_j) / (1 - t)`. The forward SDE simulation
+(part 3) and its marginal check (part 4) are still to come, so the
+drift is verified on its own before any simulation can hide its errors.
+
 ## What v2 could add
 
-- The **dynamic bridge via the Doob h-transform, parts 2–4**: the drift
-  `eps * grad log h(t, x)` (finite differences of `log h` on the grid),
-  forward SDE simulation with Euler–Maruyama, then a check of the
-  simulated time-marginals against the mixture representation — the
-  natural "second half" of the theory, built on the potentials above.
+- The **dynamic bridge via the Doob h-transform, parts 3–4**: forward
+  SDE simulation with Euler–Maruyama using the drift above, then a check
+  of the simulated time-marginals against the mixture representation —
+  the natural "second half" of the theory, built on the potentials and
+  drift above.
 - Log-domain Sinkhorn for small `eps`, and the rationalized `c*` form.
 - Non-Gaussian endpoints via discretized potentials (the static side
   already supports arbitrary `mu`, `nu`).
