@@ -8,6 +8,8 @@ Endpoints ``N(0, 1)`` -> ``N(2, 1.5)`` with bridge parameter ``eps = 0.5``.
 2. Print the closed-form bridge marginals at ``t = 0, .25, .5, .75, 1``.
 3. Simulate particles from the mixture representation and compare the
    sample endpoint mean/variance with the target ``(m1, var1)``.
+4. Simulate particles with the forward SDE (Euler–Maruyama on the
+   h-transform drift) and compare the same endpoint statistics.
 
 Run with:  ``python -m bridge_lab.demo``
 
@@ -23,6 +25,7 @@ import random
 import statistics
 
 from .gaussian import gaussian_bridge_marginal, optimal_cross_covariance
+from .sde import simulate_sde
 from .simulate import sample_at_time
 from .sinkhorn import coupling_moments, discretize_gaussian, sinkhorn_bridge
 
@@ -65,6 +68,17 @@ def main() -> None:
     print(f"Particle simulation at t = 1 ({N_PARTICLES} particles, seed {SEED}):")
     print(f"  sample mean : {statistics.fmean(endpoints):.4f}   (target {M1})")
     print(f"  sample var  : {statistics.variance(endpoints):.4f}   (target {VAR1})")
+    print()
+
+    # --- 4. Forward SDE simulation ----------------------------------------
+    rng_sde = random.Random(SEED + 1)
+    x0 = rng_sde.choices(grid, weights=mu, k=N_PARTICLES)
+    sde_times = [i / 40 for i in range(41)]
+    sde_paths = simulate_sde(grid, result.b, 2.0 * EPS, sde_times, N_PARTICLES, rng_sde, x0)
+    sde_endpoints = [p[-1] for p in sde_paths]
+    print(f"SDE simulation at t = 1 ({N_PARTICLES} particles, 40 Euler steps, seed {SEED + 1}):")
+    print(f"  sample mean : {statistics.fmean(sde_endpoints):.4f}   (target {M1})")
+    print(f"  sample var  : {statistics.variance(sde_endpoints):.4f}   (target {VAR1})")
 
 
 if __name__ == "__main__":

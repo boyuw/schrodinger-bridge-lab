@@ -111,9 +111,9 @@ against the other with mismatched conventions.
 
 - 1-D, finite grids, Gaussian endpoints for the closed form / sampler.
 - The dynamic bridge is obtained from the static one via the mixture
-  representation (exact), never via an SDE simulation: the drift itself
-  is now computed (`bridge_lab.drift`), but the forward SDE simulation
-  that would use it is still to come.
+  representation (exact) and via the forward SDE (Euler–Maruyama on the
+  h-transform drift, `bridge_lab.sde`); the check of the simulated
+  time-marginals against the mixture representation is still to come.
 - No convergence acceleration, no log-domain stabilization, no
   multi-dimensional anything.
 
@@ -139,16 +139,34 @@ one-sided at the ends). It is anchored by an exact identity, tested:
 for a point-mass terminal potential, `log h` is quadratic, the central
 difference is exact on a uniform grid, and the drift reduces to the
 Brownian-bridge pull `-(x - x_j) / (1 - t)`. The forward SDE simulation
-(part 3) and its marginal check (part 4) are still to come, so the
-drift is verified on its own before any simulation can hide its errors.
+(part 3) is landed below; its marginal check (part 4) is still to come,
+so the drift is verified on its own before any simulation can hide its
+errors.
+
+### Dynamic bridge, part 3: forward SDE (landed)
+
+`bridge_lab.sde` integrates `dX_t = drift(t, X_t) dt + sqrt(eps_k / 2) dW_t`
+with Euler–Maruyama. The drift is known only on the grid, so it is
+linearly interpolated (exact at grid points, clamped outside). The
+starting points are an input — the SDE's initial law is the start
+marginal, sampled by the caller — so the module stays testable with
+deterministic starts. It is anchored by two checks, both tested: a
+point-mass terminal potential makes the SDE a Brownian bridge, whose
+endpoints concentrate on the target with spread `sqrt(eps * dt)` (the
+last Euler step lands exactly on the target before the final noise
+increment), and on the solved demo bridge the simulated endpoints
+recover `N(2, 1.5)` (seed 11, 2000 particles, 50 steps: mean 2.019,
+var 1.439). One honest limitation is recorded in the tests, not hidden:
+the Euler discretization visibly biases the mid-time marginal
+(observed `t = 0.5` var 1.21 against closed-form 1.25); quantifying
+that bias is part 4's job.
 
 ## What v2 could add
 
-- The **dynamic bridge via the Doob h-transform, parts 3–4**: forward
-  SDE simulation with Euler–Maruyama using the drift above, then a check
-  of the simulated time-marginals against the mixture representation —
-  the natural "second half" of the theory, built on the potentials and
-  drift above.
+- The **dynamic bridge via the Doob h-transform, part 4**: a check of
+  the simulated time-marginals against the mixture representation —
+  the natural "second half" of the theory, built on the potentials,
+  drift, and SDE simulation above.
 - Log-domain Sinkhorn for small `eps`, and the rationalized `c*` form.
 - Non-Gaussian endpoints via discretized potentials (the static side
   already supports arbitrary `mu`, `nu`).
