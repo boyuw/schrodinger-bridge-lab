@@ -14,10 +14,13 @@ The anchors are exact where the theory is exact:
   steps: mean 2.019, var 1.439; the tolerances below are ~5x the
   Monte Carlo error, so they test the SDE, not the seed.
 
-The mid-time marginals are NOT asserted here: comparing the simulated
-``t = 0.5`` marginal against the closed form is part 4 of the backlog
-item (the Euler discretization visibly biases it — observed var 1.21
-against closed-form 1.25 — and that bias deserves its own check).
+The mid-time marginals are checked in ``test_marginals`` (part 4 of
+the backlog item), not here: the SDE marginals agree with the closed
+form within Monte Carlo error at every time. An earlier draft of this
+docstring claimed the Euler discretization "visibly biases" the
+``t = 0.5`` variance (observed 1.21 against closed-form 1.25 with one
+seed); that difference is one Monte Carlo standard error at 2000
+particles and vanishes at 20000 — see ``bridge_lab.marginals``.
 """
 
 import math

@@ -10,6 +10,9 @@ Endpoints ``N(0, 1)`` -> ``N(2, 1.5)`` with bridge parameter ``eps = 0.5``.
    sample endpoint mean/variance with the target ``(m1, var1)``.
 4. Simulate particles with the forward SDE (Euler–Maruyama on the
    h-transform drift) and compare the same endpoint statistics.
+5. Check the SDE time-marginals against the closed form at every time
+   (the dynamic bridge's part 4): sample mean/variance per time with
+   Monte Carlo z-scores, reusing the section-4 paths.
 
 Run with:  ``python -m bridge_lab.demo``
 
@@ -25,6 +28,7 @@ import random
 import statistics
 
 from .gaussian import gaussian_bridge_marginal, optimal_cross_covariance
+from .marginals import marginal_rows, worst_mean_z, worst_var_z
 from .sde import simulate_sde
 from .simulate import sample_at_time
 from .sinkhorn import coupling_moments, discretize_gaussian, sinkhorn_bridge
@@ -79,6 +83,20 @@ def main() -> None:
     print(f"SDE simulation at t = 1 ({N_PARTICLES} particles, 40 Euler steps, seed {SEED + 1}):")
     print(f"  sample mean : {statistics.fmean(sde_endpoints):.4f}   (target {M1})")
     print(f"  sample var  : {statistics.variance(sde_endpoints):.4f}   (target {VAR1})")
+    print()
+
+    # --- 5. SDE time-marginals vs the closed form (part 4) ----------------
+    rows = marginal_rows(sde_paths, sde_times, M0, VAR0, M1, VAR1, EPS)
+    print("SDE time-marginals vs closed form (same 20000 paths, 40 steps):")
+    print(f"  {'t':>4}  {'sample mean':>11}  {'closed':>6}  "
+          f"{'sample var':>10}  {'closed':>6}  {'mean z':>6}  {'var z':>6}")
+    for r in rows:
+        if r.t in (0.0, 0.25, 0.5, 0.75, 1.0):
+            print(f"  {r.t:4.2f}  {r.sample_mean:11.4f}  {r.closed_mean:6.3f}  "
+                  f"{r.sample_var:10.4f}  {r.closed_var:6.3f}  "
+                  f"{r.mean_z:6.2f}  {r.var_z:6.2f}")
+    print(f"  worst |z| over all 41 times: mean {worst_mean_z(rows):.2f}, "
+          f"var {worst_var_z(rows):.2f} (Monte Carlo error, not drift bias)")
 
 
 if __name__ == "__main__":

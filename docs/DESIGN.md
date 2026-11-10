@@ -112,8 +112,9 @@ against the other with mismatched conventions.
 - 1-D, finite grids, Gaussian endpoints for the closed form / sampler.
 - The dynamic bridge is obtained from the static one via the mixture
   representation (exact) and via the forward SDE (Euler–Maruyama on the
-  h-transform drift, `bridge_lab.sde`); the check of the simulated
-  time-marginals against the mixture representation is still to come.
+  h-transform drift, `bridge_lab.sde`); the simulated time-marginals
+  are checked against the mixture representation in
+  `bridge_lab.marginals` (part 4, landed), with Monte Carlo z-scores.
 - No convergence acceleration, no log-domain stabilization, no
   multi-dimensional anything.
 
@@ -139,9 +140,9 @@ one-sided at the ends). It is anchored by an exact identity, tested:
 for a point-mass terminal potential, `log h` is quadratic, the central
 difference is exact on a uniform grid, and the drift reduces to the
 Brownian-bridge pull `-(x - x_j) / (1 - t)`. The forward SDE simulation
-(part 3) is landed below; its marginal check (part 4) is still to come,
-so the drift is verified on its own before any simulation can hide its
-errors.
+(part 3) and its marginal check (part 4) are both landed below; the
+drift was verified on its own first, before any simulation could hide
+its errors.
 
 ### Dynamic bridge, part 3: forward SDE (landed)
 
@@ -156,17 +157,33 @@ endpoints concentrate on the target with spread `sqrt(eps * dt)` (the
 last Euler step lands exactly on the target before the final noise
 increment), and on the solved demo bridge the simulated endpoints
 recover `N(2, 1.5)` (seed 11, 2000 particles, 50 steps: mean 2.019,
-var 1.439). One honest limitation is recorded in the tests, not hidden:
-the Euler discretization visibly biases the mid-time marginal
-(observed `t = 0.5` var 1.21 against closed-form 1.25); quantifying
-that bias is part 4's job.
+var 1.439). A note once left in the tests claimed the Euler
+discretization "visibly biases" the mid-time marginal (one seed's
+`t = 0.5` variance, 1.21 against closed-form 1.25); part 4 showed that
+difference is one Monte Carlo standard error at 2000 particles and
+vanishes at 20000, so the claim is corrected in `test_sde` and in
+`bridge_lab.marginals` rather than left standing.
+
+### Dynamic bridge, part 4: marginal check (landed)
+
+`bridge_lab.marginals` closes the dynamic bridge: it takes the
+Euler–Maruyama paths, computes the sample mean/variance at each time,
+and compares them with `gaussian_bridge_marginal` — the exact
+marginals of the mixture representation. Each row carries z-scores
+against the Monte Carlo standard errors (`sqrt(var / n)` for the mean,
+`var * sqrt(2 / (n - 1))` for the variance), because raw errors cannot
+tell a biased drift from an unlucky seed. On the demo bridge the worst
+|z| over all 41 times is 1.28 (mean) and 0.89 (variance) with 20000
+particles, 40 steps; with seed 11, 2000 particles, 50 steps it is 0.95
+and 1.35. The check has teeth, tested: doubling the diffusion
+parameter blows the worst mean z-score to ~74, so a wrong SDE cannot
+slip through. A second, independent cross-check compares the SDE
+mid-time variance with the mixture-representation sampler
+(`sample_at_time`) at `t = 0.5` — two different code paths, same
+marginal, agreeing within ~1.3 combined Monte Carlo errors.
 
 ## What v2 could add
 
-- The **dynamic bridge via the Doob h-transform, part 4**: a check of
-  the simulated time-marginals against the mixture representation —
-  the natural "second half" of the theory, built on the potentials,
-  drift, and SDE simulation above.
 - Log-domain Sinkhorn for small `eps`, and the rationalized `c*` form.
 - Non-Gaussian endpoints via discretized potentials (the static side
   already supports arbitrary `mu`, `nu`).

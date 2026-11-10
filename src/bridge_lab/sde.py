@@ -28,9 +28,11 @@ initial law is the start marginal ``mu``, and the caller samples it
 makes the module testable with deterministic starts.
 
 This module stops at the simulation. The check of the simulated
-time-marginals against the bridge-mixture representation is the next
-part of the backlog item, deliberately not smuggled in here: a
-simulation can look plausible while its marginals are wrong.
+time-marginals against the bridge-mixture representation is
+:mod:`bridge_lab.marginals` (dynamic bridge, part 4): a simulation can
+look plausible while its marginals are wrong, so the check lives in
+its own module with Monte Carlo z-scores rather than being smuggled
+in here.
 """
 
 from __future__ import annotations

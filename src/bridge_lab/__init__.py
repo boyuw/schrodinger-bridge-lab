@@ -12,20 +12,24 @@ Three pieces, each implementing one classical formula:
 - ``drift``: the Doob h-transform drift ``(eps_k / 2) * grad log h``
   (dynamic bridge, part 2).
 - ``sde``: Euler–Maruyama forward simulation of the h-transform SDE
-  (dynamic bridge, part 3: the marginal check against the mixture
-  representation is still to come).
+  (dynamic bridge, part 3).
+- ``marginals``: check of the simulated time-marginals against the
+  bridge-mixture closed form, with Monte Carlo z-scores (dynamic
+  bridge, part 4 — the dynamic bridge is now complete).
 
 Standard library only.
 """
 
 from .drift import drift_values, gradient_log_h, log_h_values
 from .gaussian import gaussian_bridge_marginal, optimal_cross_covariance, sample_coupling
+from .marginals import MarginalRow, marginal_rows, worst_mean_z, worst_var_z
 from .potentials import h_values, log_potentials, reconstruct_coupling
 from .sde import drift_at, simulate_sde
 from .simulate import sample_at_time, sample_paths
 from .sinkhorn import SinkhornResult, discretize_gaussian, sinkhorn_bridge
 
 __all__ = [
+    "MarginalRow",
     "SinkhornResult",
     "discretize_gaussian",
     "drift_at",
@@ -35,6 +39,7 @@ __all__ = [
     "h_values",
     "log_h_values",
     "log_potentials",
+    "marginal_rows",
     "optimal_cross_covariance",
     "reconstruct_coupling",
     "sample_at_time",
@@ -42,6 +47,8 @@ __all__ = [
     "sample_paths",
     "simulate_sde",
     "sinkhorn_bridge",
+    "worst_mean_z",
+    "worst_var_z",
 ]
 
 __version__ = "0.1.0"
