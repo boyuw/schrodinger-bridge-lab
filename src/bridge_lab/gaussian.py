@@ -5,7 +5,18 @@ For endpoints ``N(m0, var0)`` and ``N(m1, var1)`` and regularization
 
     c* = sqrt(var0 * var1 + (eps/2)^2) - eps/2,
 
-the positive root of ``c^2 + eps * c = var0 * var1``. Sanity limits:
+the positive root of ``c^2 + eps * c = var0 * var1``. It is implemented
+in the rationalized form
+
+    c* = var0 * var1 / (sqrt(var0 * var1 + (eps/2)^2) + eps/2),
+
+obtained by multiplying numerator and denominator by the conjugate
+``sqrt(var0 * var1 + (eps/2)^2) + eps/2``. The two forms are
+algebraically identical, but the literal form subtracts two nearly
+equal large numbers when ``eps >> sqrt(var0 * var1)`` and loses all
+relative precision by cancellation — at ``eps = 1e12`` it returns
+exactly ``0.0`` for unit variances, while the rationalized form still
+returns ``var0 * var1 / eps`` to machine precision. Sanity limits:
 ``eps -> 0`` gives ``c* -> sqrt(var0 * var1)`` (the comonotone optimal-
 transport coupling), and ``eps -> inf`` gives ``c* -> 0`` (independent
 endpoints: the reference measure itself).
@@ -24,12 +35,19 @@ import random
 
 
 def optimal_cross_covariance(var0: float, var1: float, eps: float) -> float:
-    """Optimal-coupling cross-covariance ``c* = sqrt(var0*var1 + (eps/2)^2) - eps/2``."""
+    """Optimal-coupling cross-covariance ``c*``.
+
+    Implemented in the rationalized form
+    ``var0 * var1 / (sqrt(var0 * var1 + (eps/2)^2) + eps/2)`` — the
+    algebraically equivalent literal form ``sqrt(...) - eps/2`` cancels
+    catastrophically when ``eps >> sqrt(var0 * var1)``. The denominator
+    is always positive (``var0, var1 > 0``), so no division by zero.
+    """
     if var0 <= 0.0 or var1 <= 0.0:
         raise ValueError("variances must be positive")
     if eps < 0.0:
         raise ValueError("eps must be nonnegative")
-    return math.sqrt(var0 * var1 + (eps / 2.0) ** 2) - eps / 2.0
+    return var0 * var1 / (math.sqrt(var0 * var1 + (eps / 2.0) ** 2) + eps / 2.0)
 
 
 def gaussian_bridge_marginal(

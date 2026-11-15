@@ -25,15 +25,49 @@ def test_cross_covariance_value():
     assert c * c + 0.9 * c == pytest.approx(0.7 * 2.3, abs=1e-12)
 
 
+def _literal_cross_covariance(var0: float, var1: float, eps: float) -> float:
+    """The literal form ``sqrt(var0*var1 + (eps/2)^2) - eps/2``.
+
+    Algebraically identical to :func:`optimal_cross_covariance`, but it
+    subtracts two nearly equal numbers at large ``eps``. Kept here only
+    as the reference the rationalized implementation is tested against.
+    """
+    return math.sqrt(var0 * var1 + (eps / 2.0) ** 2) - eps / 2.0
+
+
+def test_cross_covariance_matches_literal_form():
+    # At moderate eps the two forms agree to near machine precision.
+    for var0, var1, eps in [(1.0, 1.5, 0.5), (0.7, 2.3, 0.9), (2.0, 0.3, 3.0),
+                            (1.0, 1.0, 1e-3), (4.0, 9.0, 10.0)]:
+        c = optimal_cross_covariance(var0, var1, eps)
+        assert c == pytest.approx(_literal_cross_covariance(var0, var1, eps), rel=1e-12)
+
+
 def test_cross_covariance_limits():
     ot_limit = math.sqrt(VAR0 * VAR1)
     # eps -> 0: comonotone optimal-transport coupling.
     assert optimal_cross_covariance(VAR0, VAR1, 1e-12) == pytest.approx(ot_limit, abs=1e-9)
     # eps -> inf: independent endpoints, c* ~ var0 var1 / eps -> 0.
-    # (eps = 1e6 keeps the literal sqrt-minus-eps/2 form numerically safe;
-    # see the cancellation note in docs/DESIGN.md.)
-    c_big = optimal_cross_covariance(VAR0, VAR1, 1e6)
-    assert 0.0 <= c_big < 1e-5
+    # The rationalized form keeps full relative precision here: at
+    # eps = 1e12 the asymptotic value is matched to machine precision,
+    # where the literal form returns exactly 0.0 (see the test below).
+    for eps in (1e6, 1e12, 1e15):
+        c_big = optimal_cross_covariance(VAR0, VAR1, eps)
+        assert c_big == pytest.approx(VAR0 * VAR1 / eps, rel=1e-12)
+        assert 0.0 < c_big
+
+
+def test_cross_covariance_large_eps_stable():
+    # The literal form cancels catastrophically at large eps while the
+    # rationalized form still satisfies the defining quadratic
+    # c^2 + eps c = var0 var1 to machine precision.
+    for var0, var1, eps in [(1.0, 1.5, 1e6), (1.0, 1.5, 1e12), (0.7, 2.3, 1e12)]:
+        c = optimal_cross_covariance(var0, var1, eps)
+        assert c * c + eps * c == pytest.approx(var0 * var1, rel=1e-12)
+        literal = _literal_cross_covariance(var0, var1, eps)
+        # The literal form is already wrong at the 1e-5 relative level
+        # at eps = 1e6 and returns exactly 0.0 at eps = 1e12.
+        assert abs(literal * literal + eps * literal - var0 * var1) / (var0 * var1) > 1e-6
 
 
 def test_bridge_marginal_endpoints_exact():

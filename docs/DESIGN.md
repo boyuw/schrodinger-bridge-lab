@@ -92,12 +92,17 @@ against the other with mismatched conventions.
   exact-looking at moderate `eps`; the trade-off is underflow for very
   small `eps` relative to grid spacing, which raises a clear error
   instead of silently producing zeros.
-- **`c*` is implemented in the literal form** `sqrt(var0 var1 + (eps/2)^2)
-  - eps/2`, not the algebraically equivalent rationalized form
-  `var0 var1 / (sqrt(...) + eps/2)`. The literal form loses relative
-  precision by cancellation when `eps >> var0 var1`; acceptable here
-  (tests keep `eps <= 1e6` for the large-eps limit), and the rationalized
-  form is listed under v2.
+- **`c*` is implemented in the rationalized form** `var0 var1 /
+  (sqrt(var0 var1 + (eps/2)^2) + eps/2)`, algebraically identical to
+  the literal `sqrt(...) - eps/2` but free of the cancellation that
+  destroys the literal form when `eps >> sqrt(var0 var1)`: the literal
+  form is already wrong at the 1e-5 relative level at `eps = 1e6` and
+  returns exactly `0.0` at `eps = 1e12`, while the rationalized form
+  matches `var0 var1 / eps` to machine precision up to at least
+  `eps = 1e15` and still satisfies the defining quadratic `c^2 + eps c
+  = var0 var1` there. Tests compare the two forms at moderate `eps`
+  (agreement to 1e-12 relative) and check the large-`eps` behaviour
+  against both the asymptote and the quadratic.
 - **Discretization is density-evaluation + normalization.** No midpoint
   weights, no tail correction; the resulting error vs the continuum is
   quantified by the covariance test tolerance (0.05 on a 0.25 grid).
@@ -184,7 +189,7 @@ marginal, agreeing within ~1.3 combined Monte Carlo errors.
 
 ## What v2 could add
 
-- Log-domain Sinkhorn for small `eps`, and the rationalized `c*` form.
+- Log-domain Sinkhorn for small `eps`.
 - Non-Gaussian endpoints via discretized potentials (the static side
   already supports arbitrary `mu`, `nu`).
 - Multi-dimensional Gaussian bridges (matrix square roots by hand in

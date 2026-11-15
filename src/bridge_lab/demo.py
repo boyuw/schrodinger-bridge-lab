@@ -24,6 +24,7 @@ bridge. See ``docs/DESIGN.md``.
 
 from __future__ import annotations
 
+import math
 import random
 import statistics
 
@@ -57,6 +58,14 @@ def main() -> None:
     print(f"  col marginal error   : {result.col_error:.3e}")
     print(f"  coupling Cov(X, Y)   : {cov_discrete:.4f}  (grid approximation)")
     print(f"  closed-form c*       : {c_star:.4f}")
+    # Rationalized c* stays accurate at huge eps, where the literal
+    # sqrt-minus form cancels: at eps = 1e12 it returns exactly 0.0.
+    huge_eps = 1e12
+    c_huge = optimal_cross_covariance(VAR0, VAR1, huge_eps)
+    literal_huge = math.sqrt(VAR0 * VAR1 + (huge_eps / 2.0) ** 2) - huge_eps / 2.0
+    print(f"  c* at eps = 1e12     : {c_huge:.3e}  (rationalized; var0*var1/eps = "
+          f"{VAR0 * VAR1 / huge_eps:.3e})")
+    print(f"  literal form there   : {literal_huge:.3e}  (catastrophic cancellation)")
     print()
 
     # --- 2. Closed-form bridge marginals ----------------------------------
