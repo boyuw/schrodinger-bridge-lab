@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import math
 
-from .sinkhorn import SinkhornResult, kernel_matrix
+from .sinkhorn import SinkhornResult
 
 
 def log_potentials(result: SinkhornResult) -> tuple[list[float], list[float]]:
@@ -47,8 +47,17 @@ def log_potentials(result: SinkhornResult) -> tuple[list[float], list[float]]:
     belongs to a zero-marginal grid point, where the log-potential is
     ``-inf`` and no finite potential exists. The demo marginals are
     strictly positive on the grid, so this is a guard, not a limitation
-    encountered in practice here.
+    encountered in practice here. A result from the log-domain path
+    carries its finite log-potentials directly (``log_a`` / ``log_b``),
+    so it is read off instead of taking ``log`` of scalings that may
+    have overflowed to ``inf``.
     """
+    if result.log_a is not None and result.log_b is not None:
+        if any(not math.isfinite(v) for v in result.log_a) or any(
+            not math.isfinite(v) for v in result.log_b
+        ):
+            raise ValueError("log-potentials require strictly positive scalings a and b")
+        return list(result.log_a), list(result.log_b)
     if any(v <= 0.0 for v in result.a) or any(v <= 0.0 for v in result.b):
         raise ValueError("log-potentials require strictly positive scalings a and b")
     return [math.log(v) for v in result.a], [math.log(v) for v in result.b]
@@ -57,11 +66,24 @@ def log_potentials(result: SinkhornResult) -> tuple[list[float], list[float]]:
 def reconstruct_coupling(
     grid: list[float], eps_k: float, log_a: list[float], log_b: list[float]
 ) -> list[list[float]]:
-    """Rebuild ``pi`` from log-potentials: ``pi_ij = exp(log a_i + log b_j) K_ij``."""
-    K = kernel_matrix(grid, eps_k)
+    """Rebuild ``pi`` from log-potentials: ``pi_ij = exp(log a_i + log b_j) K_ij``.
+
+    Computed as a single exponentiation ``exp(log a_i + log b_j +
+    log K_ij)`` with ``log K_ij = -(x_i - x_j)^2 / eps_k``: the split
+    form ``exp(log a_i + log b_j) * K_ij`` overflows at small ``eps``,
+    where the potentials exceed float range but the product with the
+    kernel does not (at ``eps_k = 0.02`` on the demo grid, ``log a``
+    reaches +884). The two forms are identical in exact arithmetic.
+    """
+    if eps_k <= 0.0:
+        raise ValueError("eps_k must be positive")
+    n = len(grid)
     return [
-        [math.exp(log_a[i] + log_b[j]) * K[i][j] for j in range(len(grid))]
-        for i in range(len(grid))
+        [
+            math.exp(log_a[i] + log_b[j] - ((grid[i] - grid[j]) ** 2) / eps_k)
+            for j in range(n)
+        ]
+        for i in range(n)
     ]
 
 

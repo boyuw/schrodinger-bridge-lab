@@ -13,6 +13,10 @@ Endpoints ``N(0, 1)`` -> ``N(2, 1.5)`` with bridge parameter ``eps = 0.5``.
 5. Check the SDE time-marginals against the closed form at every time
    (the dynamic bridge's part 4): sample mean/variance per time with
    Monte Carlo z-scores, reusing the section-4 paths.
+6. Solve the static bridge again at a small kernel parameter
+   (``eps_k = 0.02``) with the log-domain Sinkhorn path, where the
+   probability-space path overflows; report its marginal errors and
+   coupling covariance next to the closed form.
 
 Run with:  ``python -m bridge_lab.demo``
 
@@ -106,6 +110,31 @@ def main() -> None:
                   f"{r.mean_z:6.2f}  {r.var_z:6.2f}")
     print(f"  worst |z| over all 41 times: mean {worst_mean_z(rows):.2f}, "
           f"var {worst_var_z(rows):.2f} (Monte Carlo error, not drift bias)")
+    print()
+
+    # --- 6. Small eps: log-domain Sinkhorn --------------------------------
+    # At eps_k = 0.02 the scalings a, b overflow float range (the true
+    # log a spans +884 / -1653), so the probability-space path ends in
+    # NaN marginal errors; the log-domain path never forms the scalings
+    # and converges to a valid coupling with the same closed-form
+    # covariance target (bridge eps = eps_k / 2 = 0.01).
+    eps_k_small = 0.02
+    try:
+        sinkhorn_bridge(grid, mu, nu, eps=eps_k_small, max_iter=300)
+        prob_outcome = "converged (unexpected at this eps)"
+    except (RuntimeError, ValueError) as exc:
+        prob_outcome = f"{type(exc).__name__}: {exc}"
+    small = sinkhorn_bridge(grid, mu, nu, eps=eps_k_small, domain="log", tol=1e-9)
+    _, _, cov_small = coupling_moments(grid, small.pi)
+    c_star_small = optimal_cross_covariance(VAR0, VAR1, eps_k_small / 2.0)
+    print(f"Small-eps static bridge (kernel eps_k = {eps_k_small}, bridge eps = 0.01):")
+    print(f"  probability-space path : {prob_outcome}")
+    print(f"  log-domain iterations  : {small.iterations}")
+    print(f"  row marginal error     : {small.row_error:.3e}")
+    print(f"  col marginal error     : {small.col_error:.3e}")
+    print(f"  coupling Cov(X, Y)     : {cov_small:.4f}  (closed-form c* {c_star_small:.4f})")
+    print(f"  log a range            : [{min(small.log_a):.1f}, {max(small.log_a):.1f}]"
+          f"  (exp would overflow float range)")
 
 
 if __name__ == "__main__":

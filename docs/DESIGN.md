@@ -88,10 +88,16 @@ against the other with mismatched conventions.
 - **Randomness is injected.** Samplers take a `random.Random` instance;
   nothing touches global RNG state, so every result is deterministic
   under a fixed seed (tested).
-- **Sinkhorn runs in probability space, not log space.** Simple and
-  exact-looking at moderate `eps`; the trade-off is underflow for very
-  small `eps` relative to grid spacing, which raises a clear error
-  instead of silently producing zeros.
+- **Sinkhorn has two arithmetic paths; probability space is the
+  default.** ``domain="probability"`` iterates on the scalings ``a``
+  and ``b`` directly — simple and exact-looking at moderate `eps`.
+  ``domain="log"`` iterates on ``f = log a`` and ``g = log b`` with
+  logsumexp updates and is the path for small `eps`: the scalings grow
+  like ``exp(1 / eps)`` and overflow float range (on the demo grid the
+  probability path already reaches ``a ~ 1e150`` at ``eps_k = 0.05``
+  and produces NaN marginal errors at ``eps_k = 0.02``), while the
+  log-domain path never forms them. Both paths are the same iteration
+  and agree to ~1e-17 on the coupling at moderate `eps` (tested).
 - **`c*` is implemented in the rationalized form** `var0 var1 /
   (sqrt(var0 var1 + (eps/2)^2) + eps/2)`, algebraically identical to
   the literal `sqrt(...) - eps/2` but free of the cancellation that
@@ -187,9 +193,49 @@ mid-time variance with the mixture-representation sampler
 (`sample_at_time`) at `t = 0.5` — two different code paths, same
 marginal, agreeing within ~1.3 combined Monte Carlo errors.
 
+### Log-domain Sinkhorn (landed)
+
+`bridge_lab.sinkhorn` now offers a second arithmetic path for the same
+iteration, selected by `sinkhorn_bridge(..., domain="log")` (the
+probability-space path stays the default). Writing `f = log a` and
+`g = log b`, the updates are the logs of the probability-space updates:
+
+```
+f_i = log mu_i - logsumexp_j(log K_ij + g_j),
+g_j = log nu_j - logsumexp_i(log K_ij + f_i),
+```
+
+with `log K_ij = -(x_i - x_j)^2 / eps_k`, evaluated by a max-shifted
+logsumexp. No intermediate ever exponentiates a scaling, so the
+iteration survives the regime where `a` and `b` overflow float range.
+The coupling is formed only at the end of each sweep, as
+`pi_ij = exp(f_i + log K_ij + g_j)` — a coupling mass (<= 1 in exact
+arithmetic), so that exponentiation cannot overflow — and convergence
+is judged on the marginal errors of `pi` exactly as in the
+probability-space path, so the two paths share one stopping rule.
+
+The result carries the finite log-potentials in `log_a` / `log_b`
+(`a` / `b` are the exponentiated values and may be `inf` for the
+log-domain path), and `bridge_lab.potentials.log_potentials` reads
+them off directly instead of taking `log` of overflowed scalings.
+`reconstruct_coupling` likewise folds the kernel into the exponent
+(`exp(log a_i + log b_j + log K_ij)`), since the split form
+`exp(log a_i + log b_j) * K_ij` overflows at small `eps` even though
+the product with the kernel does not.
+
+Anchors, all tested in `tests/test_log_sinkhorn.py`: at moderate
+`eps_k = 1.0` the two paths agree on the coupling to ~2e-17 with the
+same iteration count; at `eps_k = 0.02` the log path converges in 2283
+iterations (tol 1e-9) to a valid coupling — marginal errors < 1e-9,
+covariance 1.2189 against closed-form `c* = 1.2198` at `eps = 0.01` —
+while the probability path ends in NaN marginal errors and raises
+`RuntimeError` (its `log a` spans +884 / -1653, far outside float
+range); at `eps_k = 0.01` it still converges (~5k iterations); and at
+`eps_k = 1e4` it recovers the independent product `mu x nu` to ~1e-6.
+The demo's section 6 shows the small-`eps` case end to end.
+
 ## What v2 could add
 
-- Log-domain Sinkhorn for small `eps`.
 - Non-Gaussian endpoints via discretized potentials (the static side
   already supports arbitrary `mu`, `nu`).
 - Multi-dimensional Gaussian bridges (matrix square roots by hand in
