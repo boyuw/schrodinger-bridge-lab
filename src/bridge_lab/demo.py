@@ -17,6 +17,10 @@ Endpoints ``N(0, 1)`` -> ``N(2, 1.5)`` with bridge parameter ``eps = 0.5``.
    (``eps_k = 0.02``) with the log-domain Sinkhorn path, where the
    probability-space path overflows; report its marginal errors and
    coupling covariance next to the closed form.
+7. Bridge between two bimodal Gaussian mixtures (no closed form):
+   report the coupling covariance, the mode-matched mass, and the
+   mid-time marginal from particles drawn through the discrete
+   coupling — sanity checks only, labelled as such.
 
 Run with:  ``python -m bridge_lab.demo``
 
@@ -34,6 +38,13 @@ import statistics
 
 from .gaussian import gaussian_bridge_marginal, optimal_cross_covariance
 from .marginals import marginal_rows, worst_mean_z, worst_var_z
+from .mixtures import (
+    MixtureComponent,
+    coupling_same_side_mass,
+    discretize_mixture,
+    mixture_moments,
+    sample_mixture_at_time,
+)
 from .sde import simulate_sde
 from .simulate import sample_at_time
 from .sinkhorn import coupling_moments, discretize_gaussian, sinkhorn_bridge
@@ -135,6 +146,52 @@ def main() -> None:
     print(f"  coupling Cov(X, Y)     : {cov_small:.4f}  (closed-form c* {c_star_small:.4f})")
     print(f"  log a range            : [{min(small.log_a):.1f}, {max(small.log_a):.1f}]"
           f"  (exp would overflow float range)")
+    print()
+
+    # --- 7. Non-Gaussian endpoints: bimodal mixtures ----------------------
+    # No closed form for this coupling, so everything below is a sanity
+    # check, labelled as such. mu is 0.5 N(-2, 0.5) + 0.5 N(2, 0.5)
+    # (mean 0, var 4.5); nu is 0.5 N(-1, 0.5) + 0.5 N(3, 0.5)
+    # (mean 1, var 4.5). The mode splits are at 0.0 and 1.0.
+    mix_mu_components = [
+        MixtureComponent(0.5, -2.0, 0.5),
+        MixtureComponent(0.5, 2.0, 0.5),
+    ]
+    mix_nu_components = [
+        MixtureComponent(0.5, -1.0, 0.5),
+        MixtureComponent(0.5, 3.0, 0.5),
+    ]
+    mix_mu = discretize_mixture(grid, mix_mu_components)
+    mix_nu = discretize_mixture(grid, mix_nu_components)
+    mix_result = sinkhorn_bridge(grid, mix_mu, mix_nu, eps=2.0 * EPS)
+    _, _, cov_mix = coupling_moments(grid, mix_result.pi)
+    same_side = coupling_same_side_mass(grid, mix_result.pi, 0.0, 1.0)
+    rng_mix = random.Random(SEED + 2)
+    mid = sample_mixture_at_time(
+        grid, mix_result.pi, EPS, t=0.5, n=N_PARTICLES, rng=rng_mix
+    )
+    mid_mean_formula = 0.5 * mixture_moments(mix_mu_components)[0] + 0.5 * mixture_moments(
+        mix_nu_components
+    )[0]
+    mid_var_formula = (
+        0.25 * mixture_moments(mix_mu_components)[1]
+        + 0.25 * mixture_moments(mix_nu_components)[1]
+        + 0.5 * cov_mix
+        + EPS * 0.25
+    )
+    print("Non-Gaussian bridge: bimodal mixtures (sanity checks, no closed form):")
+    print("  mu = 0.5 N(-2, 0.5) + 0.5 N(2, 0.5), "
+          "nu = 0.5 N(-1, 0.5) + 0.5 N(3, 0.5), kernel eps_k = 1.0")
+    print(f"  iterations           : {mix_result.iterations}")
+    print(f"  row marginal error   : {mix_result.row_error:.3e}")
+    print(f"  col marginal error   : {mix_result.col_error:.3e}")
+    print(f"  coupling Cov(X, Y)   : {cov_mix:.4f}  (comonotone ceiling 4.5, "
+          f"independent 0)")
+    print(f"  mode-matched mass    : {same_side:.4f}  (1 = left->left and "
+          f"right->right; independent product gives 0.5)")
+    print(f"  mid-time t = 0.5 ({N_PARTICLES} particles, seed {SEED + 2}):")
+    print(f"    sample mean : {statistics.fmean(mid):.4f}   (formula {mid_mean_formula:.4f})")
+    print(f"    sample var  : {statistics.variance(mid):.4f}   (formula {mid_var_formula:.4f})")
 
 
 if __name__ == "__main__":

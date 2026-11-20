@@ -16,6 +16,9 @@ Three pieces, each implementing one classical formula:
 - ``marginals``: check of the simulated time-marginals against the
   bridge-mixture closed form, with Monte Carlo z-scores (dynamic
   bridge, part 4 — the dynamic bridge is now complete).
+- ``mixtures``: non-Gaussian endpoints — Gaussian mixtures discretized
+  on the grid, with mode-matching sanity checks for the coupling
+  (no closed form, so the checks are inequalities and limits).
 
 Standard library only.
 """
@@ -23,6 +26,13 @@ Standard library only.
 from .drift import drift_values, gradient_log_h, log_h_values
 from .gaussian import gaussian_bridge_marginal, optimal_cross_covariance, sample_coupling
 from .marginals import MarginalRow, marginal_rows, worst_mean_z, worst_var_z
+from .mixtures import (
+    MixtureComponent,
+    coupling_same_side_mass,
+    discretize_mixture,
+    mixture_moments,
+    sample_mixture_at_time,
+)
 from .potentials import h_values, log_potentials, reconstruct_coupling
 from .sde import drift_at, simulate_sde
 from .simulate import sample_at_time, sample_paths
@@ -30,8 +40,11 @@ from .sinkhorn import SinkhornResult, discretize_gaussian, sinkhorn_bridge
 
 __all__ = [
     "MarginalRow",
+    "MixtureComponent",
     "SinkhornResult",
+    "coupling_same_side_mass",
     "discretize_gaussian",
+    "discretize_mixture",
     "drift_at",
     "drift_values",
     "gaussian_bridge_marginal",
@@ -40,10 +53,12 @@ __all__ = [
     "log_h_values",
     "log_potentials",
     "marginal_rows",
+    "mixture_moments",
     "optimal_cross_covariance",
     "reconstruct_coupling",
     "sample_at_time",
     "sample_coupling",
+    "sample_mixture_at_time",
     "sample_paths",
     "simulate_sde",
     "sinkhorn_bridge",

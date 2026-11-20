@@ -234,9 +234,39 @@ range); at `eps_k = 0.01` it still converges (~5k iterations); and at
 `eps_k = 1e4` it recovers the independent product `mu x nu` to ~1e-6.
 The demo's section 6 shows the small-`eps` case end to end.
 
+### Non-Gaussian endpoints: bimodal mixtures (landed)
+
+`bridge_lab.mixtures` discretizes a Gaussian mixture onto the grid
+(`discretize_mixture`, with analytic moments in `mixture_moments`)
+and solves the bridge with the unchanged Sinkhorn solver — the static
+side never assumed Gaussian endpoints, only the closed form did.
+Because no closed form exists for the coupling, every check is a
+sanity check, labelled as such in the code and the demo:
+
+- The discretized moments match the analytic mixture moments to
+  ~1e-7 (a discretization check).
+- The Sinkhorn marginal errors stay below 1e-9.
+- The coupling covariance is 4.3036 at `eps_k = 1.0`, near the
+  comonotone ceiling 4.5 and far from the independent value 0.
+- Mode structure survives: with splits at 0.0 (source modes at -2/+2)
+  and 1.0 (target modes at -1/+3), 0.9895 of the coupling mass is
+  mode-matched (left -> left, right -> right), against 0.5 for the
+  independent product; the mass erodes to 0.6837 at `eps_k = 20`
+  as the regularization forgets which mode is which.
+- The limits hold as inequalities: for identical mixtures
+  `Cov(X, Y) / Var(X) = 0.975` at `eps_k = 0.5` (tending to 1 as
+  `eps -> 0`, the identity coupling) and `Cov(X, Y) = 0.004` at
+  `eps_k = 1e4` (tending to 0 as `eps -> inf`, the independent
+  product).
+- `sample_mixture_at_time` draws endpoint pairs from the discrete
+  coupling and applies the pinned-bridge formula, so the mid-time
+  marginal can be checked against the mixture formula with the
+  coupling covariance: at `t = 0.5` the demo's 20000 particles give
+  mean/var matching the formula to Monte Carlo error.
+
+The demo's section 7 shows the mixture bridge end to end.
+
 ## What v2 could add
 
-- Non-Gaussian endpoints via discretized potentials (the static side
-  already supports arbitrary `mu`, `nu`).
 - Multi-dimensional Gaussian bridges (matrix square roots by hand in
   2-D), then general reference processes.
