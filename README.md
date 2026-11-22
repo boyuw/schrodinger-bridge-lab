@@ -83,6 +83,36 @@ SDE time-marginals vs closed form (same 20000 paths, 40 steps):
   worst |z| over all 41 times: mean 1.28, var 0.89 (Monte Carlo error, not drift bias)
 ```
 
+## The mid-bridge "bulge"
+
+The variance of a bridge marginal need not interpolate between the
+endpoint variances — it can peak mid-bridge. From the mixture
+representation `X_t = (1-t) X + t Y + sqrt(eps·t(1-t)) Z`, the variance is
+
+    var(t) = (1-t)²·var0 + t²·var1 + 2·t(1-t)·c* + eps·t(1-t),
+
+and two effects pull in opposite directions. The endpoint-mixing part
+shrinks the spread — the optimal coupling is less than perfectly
+correlated (`c* < sqrt(var0·var1)`), so averaging two imperfectly
+correlated draws concentrates mass — while the pinned-Brownian term
+`eps·t(1-t)` adds spread that vanishes at both ends and peaks at
+`t = 0.5`. When the noise term wins, the mid-bridge cloud is wider
+than either endpoint.
+
+For equal variances the formula collapses to
+`var(t) = v + (eps − 2(v − c*))·t(1-t)`, so there is a bulge exactly
+when `eps > 2(v − c*)`. With `N(0, 1) -> N(2, 1)` and `eps = 0.5`,
+`c* = 0.781` and the mid-bridge variance is `1.0154` against `1.0` at
+both ends — small, symmetric, and peaked at `t = 0.5` (closed form;
+check it with `gaussian_bridge_marginal`). At `eps = 0` the coupling
+is comonotone (`c* = 1`) and the bulge vanishes exactly.
+
+Note the demo configuration above does *not* bulge: for
+`N(0, 1) -> N(2, 1.5)` with `eps = 0.5`, `c* = 1.0` makes the
+quadratic term vanish and the variance is exactly linear in `t`
+(`1.000, 1.125, 1.250, 1.375, 1.500`). The bulge is a property of the
+parameter regime, not of every bridge.
+
 ## Honesty box
 
 - **1-D only**, and the dynamics are built from the *static* bridge:
