@@ -266,6 +266,47 @@ sanity check, labelled as such in the code and the demo:
 
 The demo's section 7 shows the mixture bridge end to end.
 
+### Grid-convergence check (landed)
+
+`bridge_lab.convergence` tabulates the coupling-covariance error
+against the closed-form `c*` as the grid spacing `h` halves, for the
+demo configuration `N(0, 1) -> N(2, 1.5)`, `eps = 0.5` (so `c* = 1.0`
+exactly). The table has two regimes, and confusing them is the
+whole point of the check:
+
+| h | n | abs err |
+|---|---|---|
+| 1.0 | 15 | 3.95e-04 |
+| 0.5 | 29 | 2.32e-06 |
+| 0.25 | 57 | 4.29e-06 |
+| 0.125 | 113 | 5.63e-06 |
+| 0.0625 | 225 | 6.40e-06 |
+
+- **Spacing regime (h = 1.0 -> 0.5).** The error collapses ~170x.
+  The mechanism is Poisson summation: a Gaussian sampled on a grid
+  sums to a Gaussian up to a periodic theta factor exponentially
+  small in `(kernel width / h)^2`, i.e. `exp(-2 pi^2 eps / h^2)`
+  (`theta_scale`). At `h = 1.0` — coarser than the kernel width
+  `sqrt(eps) ~ 0.71` — the corrections surface at ~4e-4; at `h <= 0.5`
+  they are below 1e-12. The scale tracks observed errors within
+  about an order of magnitude across the tested `(eps, h)` pairs
+  (eps = 0.25: 1.2e-09 at h = 0.5, 5.0e-03 at h = 1.0, on a wide
+  range). This is a cliff, not a power law: the observed order from
+  h = 1.0 to 0.5 is ~7.4.
+- **Range regime (h <= 0.5).** The error stops shrinking and even
+  grows slightly with refinement — a negative observed order, the
+  signature of a floor. The floor is the `N(2, 1.5)` tail cut off at
+  `x = 8` (~5e-7 of mass), folded back in by the normalization. The
+  proof is the wide-range row: the same `h = 0.5` on `[-10, 12]`
+  gives 6.7e-16. So the demo's 57-point grid (`h = 0.25`) is already
+  at the range floor, and further refinement buys nothing until the
+  range widens.
+
+`grid_convergence_rows` requires `(hi - lo)` to be an exact multiple
+of every spacing, so rows are comparable; `observed_order` returns
+`inf` / `0.0` / `-inf` for the exact-zero edge cases. The demo's
+section 8 shows the table end to end.
+
 ## What v2 could add
 
 - Multi-dimensional Gaussian bridges (matrix square roots by hand in

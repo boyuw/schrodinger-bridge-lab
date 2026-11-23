@@ -21,6 +21,10 @@ Endpoints ``N(0, 1)`` -> ``N(2, 1.5)`` with bridge parameter ``eps = 0.5``.
    report the coupling covariance, the mode-matched mass, and the
    mid-time marginal from particles drawn through the discrete
    coupling — sanity checks only, labelled as such.
+8. Grid-convergence check: the coupling-covariance error against
+   the closed form at spacings 1.0 down to 0.0625 on the demo range,
+   plus one wide-range row showing the ~1e-6 plateau is the tail-
+   truncation floor, not spacing.
 
 Run with:  ``python -m bridge_lab.demo``
 
@@ -36,6 +40,7 @@ import math
 import random
 import statistics
 
+from .convergence import grid_convergence_rows, observed_order
 from .gaussian import gaussian_bridge_marginal, optimal_cross_covariance
 from .marginals import marginal_rows, worst_mean_z, worst_var_z
 from .mixtures import (
@@ -192,6 +197,33 @@ def main() -> None:
     print(f"  mid-time t = 0.5 ({N_PARTICLES} particles, seed {SEED + 2}):")
     print(f"    sample mean : {statistics.fmean(mid):.4f}   (formula {mid_mean_formula:.4f})")
     print(f"    sample var  : {statistics.variance(mid):.4f}   (formula {mid_var_formula:.4f})")
+    print()
+
+    # --- 8. Grid-convergence check ----------------------------------------
+    # Covariance error vs spacing on the demo range, against the
+    # closed-form c* = 1.0. The error collapses ~170x from h = 1.0 to
+    # h = 0.5 (theta-function corrections, exponentially small in
+    # eps / h^2) and then plateaus at ~1e-6: that floor is the
+    # N(2, 1.5) tail cut off at x = 8, not spacing — the wide-range
+    # row below removes it and the error falls to ~1e-15.
+    conv_rows = grid_convergence_rows(
+        M0, VAR0, M1, VAR1, EPS, (1.0, 0.5, 0.25, 0.125, 0.0625), -6.0, 8.0
+    )
+    print("Grid convergence (demo range [-6, 8], closed-form c* = 1.0000):")
+    print(f"  {'h':>6}  {'n':>4}  {'Cov':>8}  {'abs err':>9}  {'rel err':>9}  {'order':>5}")
+    prev_err: float | None = None
+    for r in conv_rows:
+        order = (
+            f"{observed_order(prev_err, r.abs_error):5.1f}"
+            if prev_err is not None
+            else "    -"
+        )
+        print(f"  {r.spacing:6.4f}  {r.n_points:4d}  {r.cov:8.6f}  "
+              f"{r.abs_error:9.3e}  {r.rel_error:9.3e}  {order}")
+        prev_err = r.abs_error
+    wide_row = grid_convergence_rows(M0, VAR0, M1, VAR1, EPS, (0.5,), -10.0, 12.0)[0]
+    print(f"  same h = 0.5 on [-10, 12]: abs err {wide_row.abs_error:.3e} "
+          f"(the plateau above is the tail-truncation floor)")
 
 
 if __name__ == "__main__":

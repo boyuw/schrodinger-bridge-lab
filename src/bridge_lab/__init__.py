@@ -19,10 +19,20 @@ Three pieces, each implementing one classical formula:
 - ``mixtures``: non-Gaussian endpoints — Gaussian mixtures discretized
   on the grid, with mode-matching sanity checks for the coupling
   (no closed form, so the checks are inequalities and limits).
+- ``convergence``: grid-convergence check — coupling-covariance error
+  vs grid spacing against the closed-form ``c*``, with the
+  theta-function spacing scale and the tail-truncation floor
+  distinguished (see ``docs/DESIGN.md``).
 
 Standard library only.
 """
 
+from .convergence import (
+    ConvergenceRow,
+    grid_convergence_rows,
+    observed_order,
+    theta_scale,
+)
 from .drift import drift_values, gradient_log_h, log_h_values
 from .gaussian import gaussian_bridge_marginal, optimal_cross_covariance, sample_coupling
 from .marginals import MarginalRow, marginal_rows, worst_mean_z, worst_var_z
@@ -39,6 +49,7 @@ from .simulate import sample_at_time, sample_paths
 from .sinkhorn import SinkhornResult, discretize_gaussian, sinkhorn_bridge
 
 __all__ = [
+    "ConvergenceRow",
     "MarginalRow",
     "MixtureComponent",
     "SinkhornResult",
@@ -49,11 +60,13 @@ __all__ = [
     "drift_values",
     "gaussian_bridge_marginal",
     "gradient_log_h",
+    "grid_convergence_rows",
     "h_values",
     "log_h_values",
     "log_potentials",
     "marginal_rows",
     "mixture_moments",
+    "observed_order",
     "optimal_cross_covariance",
     "reconstruct_coupling",
     "sample_at_time",
@@ -62,6 +75,7 @@ __all__ = [
     "sample_paths",
     "simulate_sde",
     "sinkhorn_bridge",
+    "theta_scale",
     "worst_mean_z",
     "worst_var_z",
 ]
